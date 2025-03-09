@@ -46,6 +46,7 @@ def process_frame():
 
         # 결과 출력
         cv2.imshow("Original Frame", frame)
+        cv2.imshow("ROI Frame", roi_frame)
         cv2.imshow("binary", binary)
         cv2.imshow("Edges", edges)
 
