@@ -24,7 +24,8 @@ class LaneFollowingNode : public rclcpp::Node {
     cap_.set(cv::CAP_PROP_FRAME_WIDTH, 320);
     cap_.set(cv::CAP_PROP_FRAME_HEIGHT, 180);
     cap_.set(cv::CAP_PROP_FPS, 30);
-    cap_.set(cv::CAP_PROP_AUTO_EXPOSURE, 1.5);
+    cap_.set(cv::CAP_PROP_AUTO_EXPOSURE, 1);
+    cap_.set(cv::CAP_PROP_BRIGHTNESS, 128);
     double width = cap_.get(cv::CAP_PROP_FRAME_WIDTH);
     double height = cap_.get(cv::CAP_PROP_FRAME_HEIGHT);
     double fps = cap_.get(cv::CAP_PROP_FPS);
@@ -34,9 +35,9 @@ class LaneFollowingNode : public rclcpp::Node {
     //cap_.set(cv::CAP_PROP_FRAME_HEIGHT, frame_height);
 
     // Threshold parameters
-    thresh = 100;      // simple threshold
-    blockSize = 9;     // adaptive threshold
-    C = 15;
+    //thresh = 100;      // simple threshold
+    blockSize = 1001;     // adaptive threshold
+    C = 10;
 
     // Gaussian blur parameter
     gaus_blur_size = 5;
@@ -158,23 +159,30 @@ private:
     cv::Mat gray;
     cv::cvtColor(roi_frame, gray, cv::COLOR_BGR2GRAY);
     
+    cv::Mat inverted;
+    cv::bitwise_not(gray, inverted);
+    
+    // Gaussian Blur
+    cv::Mat blurred;
+    cv::GaussianBlur(inverted, blurred, cv::Size(gaus_blur_size, gaus_blur_size), 0);
+    
     // Simple threshold
     /*
     cv::Mat binary;
     cv::threshold(gray, binary, thresh, 255, cv::THRESH_BINARY);
-    */
 
-    // Adaptive threshold
+    // Otsu threshold
     cv::Mat binary;
-    cv::adaptiveThreshold(gray, binary, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, blockSize, C);
-
-    // Gaussian Blur
-    cv::Mat blurred;
-    cv::GaussianBlur(binary, blurred, cv::Size(gaus_blur_size, gaus_blur_size), 0);
-
+    double thresh_val = cv::threshold(blurred, binary, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+    RCLCPP_INFO(this->get_logger(), "%f", thresh_val);
+    */
+    
+    cv::Mat binary;
+    cv::adaptiveThreshold(blurred, binary, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, blockSize, C);
+    
     // Canny Edge
     cv::Mat edges;
-    cv::Canny(blurred, edges, canny_inf, canny_sup);
+    cv::Canny(binary, edges, canny_inf, canny_sup);
 
     // Hough Transform
     std::vector<cv::Vec4i> lines;
@@ -233,6 +241,7 @@ private:
 
     // Display
     cv::imshow("Lane Detection", laneVis);
+    cv::imshow("Thresholded", binary);
     cv::imshow("Masked", edges);
     cv::waitKey(1);
     
